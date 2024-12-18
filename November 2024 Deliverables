@@ -1,0 +1,344 @@
+Code Outline for Clean Energy Project- Carmelo
+Download the dataset
+Process the csv file into a SQL database (python / r)
+
+Set working directory
+setwd("C:\\Users\\cralp\\OneDrive\\Desktop\\EnergySQL+RProject")
+
+
+Install Packages
+install.packages(c("readr", "DBI", "RSQLite"))
+
+Include Libraries
+library(readr)
+
+library(DBI)
+
+library(RSQLite)
+
+
+Create db file from csv
+
+# Read the CSV file
+
+data <- read_csv("owid-energy-data.csv")
+
+
+# Connect to the SQLite database
+
+con <- dbConnect(RSQLite::SQLite(), "energydata.db")
+
+
+# Function to get SQL data type
+
+get_sql_type <- function(r_type) {
+
+  switch(r_type,
+
+         "numeric" = "REAL",
+
+         "integer" = "INTEGER",
+
+         "character" = "TEXT",
+
+         "logical" = "INTEGER",
+
+         "TEXT")  # Default to TEXT for any other type
+
+}
+
+
+# Generate the CREATE TABLE statement
+
+column_defs <- sapply(names(data), function(col) {
+
+  type <- get_sql_type(class(data[[col]])[1])
+
+  paste0("`", col, "` ", type)
+
+})
+
+create_table_sql <- paste("CREATE TABLE IF NOT EXISTS energydatatable (",
+
+                          paste(column_defs, collapse = ", "),
+
+                          ")")
+
+
+# Create the table
+
+dbExecute(con, create_table_sql)
+
+
+# Write data to the database
+
+dbWriteTable(con, "energydatatable", data, append = TRUE, row.names = FALSE)
+
+
+# Close the database connection
+
+dbDisconnect(con)
+
+
+
+Print schema of database
+
+# Function to print database schema
+
+print_db_schema <- function(db_path) {
+
+  # Establish connection to database
+
+  con <- dbConnect(SQLite(), db_path)
+
+ 
+
+  # Get all table names
+
+  tables <- dbListTables(con)
+
+ 
+
+  # Print schema for each table
+
+  for (table in tables) {
+
+    cat("\nTable:", table, "\n")
+
+    cat("----------------\n")
+
+    # Get and print column information
+
+    schema <- dbGetQuery(con, sprintf("PRAGMA table_info(%s)", table))
+
+    print(schema)
+
+  }
+
+ 
+
+  # Close connection
+
+  dbDisconnect(con)
+
+}
+
+
+print_db_schema('energydata.db')
+
+
+To text file
+# Function to print database schema to file
+
+print_db_schema <- function(db_path, output_file = "schema_output.txt") {
+
+  # Establish connection to database
+
+  con <- dbConnect(SQLite(), db_path)
+
+ 
+
+  # Open file connection for writing
+
+  fileConn <- file(output_file, "w")
+
+ 
+
+  # Get all table names
+
+  tables <- dbListTables(con)
+
+ 
+
+  # Write schema for each table
+
+  for (table in tables) {
+
+    writeLines(paste("\nTable:", table), fileConn)
+
+    writeLines("----------------", fileConn)
+
+    # Get column information
+
+    schema <- dbGetQuery(con, sprintf("PRAGMA table_info(%s)", table))
+
+    # Convert schema to string representation and write to file
+
+    capture.output(print(schema), file = fileConn)
+
+  }
+
+ 
+
+  # Close connections
+
+  close(fileConn)
+
+  dbDisconnect(con)
+
+}
+
+
+print_db_schema('energydata.db')
+
+
+
+
+Select top N rows from table
+# Connect to the database
+
+con <- dbConnect(SQLite(), "energydata.db")
+
+
+# Execute SELECT query
+
+query <- "SELECT * FROM energydatatable LIMIT 100"
+
+result <- dbGetQuery(con, query)
+
+
+# Print the results
+
+print(result)
+
+
+# Close the connection
+
+dbDisconnect(con)
+
+
+
+
+Write results of query to a csv file
+
+# Load required library
+
+library(RSQLite)
+
+
+# Connect to the database
+
+con <- dbConnect(SQLite(), "energydata.db")
+
+
+# Execute SELECT query
+
+query <- "SELECT * FROM energydatatable LIMIT 100"
+
+result <- dbGetQuery(con, query)
+
+
+# Write results to CSV file
+
+write.csv(result, "energy_data_sample.csv", row.names = FALSE)
+
+
+# Close the connection
+
+dbDisconnect(con)
+
+
+# Print confirmation message
+
+cat("Data has been written to energy_data_sample.csv")
+
+
+Count number of distinct countries
+
+# Load required library
+
+library(RSQLite)
+
+
+# Connect to the database
+
+con <- dbConnect(SQLite(), "energydata.db")
+
+
+# Execute SELECT query
+
+query <- "SELECT COUNT(DISTINCT country) FROM energydatatable;"
+
+result <- dbGetQuery(con, query)
+
+
+# Print results
+
+print(result[[1]])  # or result[1,1] would also work
+
+
+# Close the connection
+
+dbDisconnect(con)
+
+
+
+Renewable energy transition over time
+# Load required library
+
+library(RSQLite)
+
+
+# Connect to the database
+
+con <- dbConnect(SQLite(), "energydata.db")
+
+
+# Execute SELECT query
+
+query <- "SELECT
+
+    country,
+
+    year,
+
+    renewables_share_energy as renewable_share,
+
+    fossil_share_energy as fossil_share
+
+FROM energydatatable
+
+WHERE year >= 2000
+
+    AND country IN (
+
+        'United States',
+
+        'China',
+
+        'Germany',
+
+        'India',
+
+        'United Kingdom',
+
+        'France',
+
+        'Japan'
+
+    ) -- Limiting to major economies for clarity
+
+    AND renewables_share_energy IS NOT NULL
+
+    AND fossil_share_energy IS NOT NULL
+
+ORDER BY country, year;
+
+"
+
+result <- dbGetQuery(con, query)
+
+
+# Write results to CSV file
+
+write.csv(result, "transition_over_time.csv", row.names = FALSE)
+
+
+# Close the connection
+
+dbDisconnect(con)
+
+
+# Print confirmation message
+
+cat("Data has been written to transition_over_time.csv")
